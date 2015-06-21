@@ -1,4 +1,4 @@
-package main
+package volumes
 
 import (
 	"io/ioutil"
@@ -7,6 +7,10 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
+)
+
+const (
+	dockerSocket = "unix:///var/run/docker.sock"
 )
 
 type Volume struct {

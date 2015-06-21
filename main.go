@@ -2,16 +2,15 @@ package main
 
 import (
 	log "github.com/Sirupsen/logrus"
+	"github.com/cloudnautique/go-vol/volumes"
 )
 
 const (
-	dockerDir    = "/var/lib/docker"
-	volumeDir    = "/var/lib/docker/volumes"
-	dockerSocket = "unix:///var/run/docker.sock"
+	volumeDir = "/var/lib/docker/volumes"
 )
 
 func main() {
-	vols := &Volumes{}
+	vols := &volumes.Volumes{}
 	err := vols.GetVolumes(volumeDir)
 	err = vols.DeleteOrphans(false)
 	if err != nil {
