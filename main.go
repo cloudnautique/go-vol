@@ -12,7 +12,7 @@ const (
 func main() {
 	vols := &volumes.Volumes{}
 	err := vols.GetVolumes(volumeDir)
-	err = vols.DeleteOrphans(false)
+	err = vols.DeleteAllOrphans(false)
 	if err != nil {
 		log.Fatal("%v", err)
 	}

@@ -61,7 +61,7 @@ func (v Volumes) GetVolumes(volumeDir string) error {
 	return nil
 }
 
-func (v Volumes) DeleteOrphans(noop bool) error {
+func (v Volumes) DeleteAllOrphans(noop bool) error {
 	message := "NOOP: Deleting volume: "
 	if noop == false {
 		message = "Deleting volume: "
@@ -71,7 +71,7 @@ func (v Volumes) DeleteOrphans(noop bool) error {
 		if volume.Attached == false {
 			log.Infof("%v: %v", message, key)
 			if noop == false {
-				err := os.RemoveAll(volume.Path)
+				err := DeleteVolume(volume.Path)
 				if err != nil {
 					log.Errorf("%v", err)
 				}
@@ -79,6 +79,11 @@ func (v Volumes) DeleteOrphans(noop bool) error {
 		}
 	}
 	return nil
+}
+
+func DeleteVolume(volPath string) error {
+	err := os.RemoveAll(volPath)
+	return err
 }
 
 func (v Volumes) setAttachedVolumes() error {
