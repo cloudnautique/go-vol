@@ -13,12 +13,8 @@ const (
 func main() {
 	vols := &Volumes{}
 	err := vols.GetVolumes(volumeDir)
+	err = vols.DeleteOrphans(false)
 	if err != nil {
 		log.Fatal("%v", err)
-	}
-
-	for k, v := range *vols {
-		log.Infof("Key: %v", k)
-		log.Infof("Attached: %v", v.Attached)
 	}
 }

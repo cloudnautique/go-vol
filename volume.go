@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path"
 
 	log "github.com/Sirupsen/logrus"
@@ -10,17 +10,25 @@ import (
 )
 
 type Volume struct {
-	ID          string "json:ID"
-	Attached    bool   "json: Attached, omitempty"
-	Path        string "json: Path"
-	IsBindMount bool   "json: IsBindMount"
-	Writable    bool   "json: Writeable"
+	ID         string
+	Attached   bool
+	Path       string
+	DockerPath string
 }
 
 type Volumes map[string]Volume
 
-func (v *Volumes) GetVolumes(volumeDir string) error {
-	// Get all Docker volumes from Disk.
+func getDockerClient() *docker.Client {
+	client, _ := docker.NewClient(dockerSocket)
+	return client
+}
+
+func (v Volumes) GetVolumes(volumeDir string) error {
+	client := getDockerClient()
+	info, _ := client.Info()
+	dockerPfx := info.Get("DockerRootDir")
+
+	// Get all VFS Docker volumes from Disk.
 	files, err := ioutil.ReadDir(volumeDir)
 	if err != nil {
 		return err
@@ -28,23 +36,16 @@ func (v *Volumes) GetVolumes(volumeDir string) error {
 
 	for _, f := range files {
 		log.Infof("Found volume: %v", f.Name())
-		filePath := path.Join(volumeDir, f.Name(), "config.json")
+		filePath := path.Join(volumeDir, f.Name())
+		dockerPath := path.Join(dockerPfx, "volumes", f.Name(), "_data")
 
-		log.Infof("Reading Config: %s", filePath)
-		fileContent, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			log.Errorf("%v", err)
-			return err
+		volume := &Volume{
+			ID:         f.Name(),
+			Path:       filePath,
+			DockerPath: dockerPath,
 		}
 
-		volume := &Volume{}
-		err = json.Unmarshal(fileContent, &volume)
-		if err != nil {
-			log.Errorf("%v", err)
-			return err
-		}
-
-		(*v)[volume.Path] = *volume
+		v[volume.DockerPath] = *volume
 		log.Debugf("Volume path: %v", volume.Path)
 	}
 
@@ -56,8 +57,28 @@ func (v *Volumes) GetVolumes(volumeDir string) error {
 	return nil
 }
 
-func (v *Volumes) setAttachedVolumes() error {
-	client, _ := docker.NewClient(dockerSocket)
+func (v Volumes) DeleteOrphans(noop bool) error {
+	message := "NOOP: Deleting volume: "
+	if noop == false {
+		message = "Deleting volume: "
+	}
+
+	for key, volume := range v {
+		if volume.Attached == false {
+			log.Infof("%v: %v", message, key)
+			if noop == false {
+				err := os.RemoveAll(volume.Path)
+				if err != nil {
+					log.Errorf("%v", err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (v Volumes) setAttachedVolumes() error {
+	client := getDockerClient()
 
 	existingContainers, err := client.ListContainers(
 		docker.ListContainersOptions{
@@ -72,11 +93,10 @@ func (v *Volumes) setAttachedVolumes() error {
 	for _, container := range existingContainers {
 		containerInfo, _ := client.InspectContainer(container.ID)
 		for _, val := range containerInfo.Volumes {
-			if _, exists := (*v)[val]; exists {
-				log.Infof("Attached: %v", val)
-				volume := (*v)[val]
+			if _, exists := v[val]; exists {
+				volume := v[val]
 				volume.Attached = true
-				(*v)[val] = volume
+				v[val] = volume
 			}
 		}
 	}
